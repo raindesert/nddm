@@ -172,5 +172,3 @@ npm run test:help
 ```
 
 ## License
-
-MIT
