@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+
+# test results
+test-results/
+playwright-report/
+play-report/
+*.html
+*.zip
+
+# database
+*.db
+*.sqlite
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# build output
+dist/
+build/
+
+# temp files
+tmp/
+temp/
+*.tmp

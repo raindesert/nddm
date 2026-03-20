@@ -1,0 +1,37 @@
+{
+  "name": "table-schema-application-system",
+  "version": "1.0.0",
+  "description": "表结构申请系统",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "init-db": "node server/init-db.js",
+    "test": "npx playwright test",
+    "test:all": "node tests/run-tests.js all",
+    "test:api": "node tests/run-tests.js api",
+    "test:e2e": "node tests/run-tests.js e2e",
+    "test:db": "node tests/run-tests.js db",
+    "test:auth": "node tests/run-tests.js auth",
+    "test:users": "node tests/run-tests.js users",
+    "test:tables": "node tests/run-tests.js tables",
+    "test:applications": "node tests/run-tests.js applications",
+    "test:ui": "node tests/run-tests.js ui",
+    "test:headed": "node tests/run-tests.js headed",
+    "test:report": "node tests/run-tests.js report",
+    "test:install": "node tests/run-tests.js install",
+    "test:help": "node tests/run-tests.js"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.58.2",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "sql.js": "^1.10.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

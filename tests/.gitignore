@@ -1,0 +1,21 @@
+# 测试输出
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# 截图和视频
+screenshots/
+videos/
+
+# 临时测试数据库
+test-db/
+*.test.db
+
+# Playwright
+playwright.config.*.js
+!playwright.config.js
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
