@@ -8,6 +8,8 @@ const {
   getAdminToken,
 } = require(path.join(__dirname, 'utils', 'apiHelper'));
 
+const generateTableName = () => `test_table_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
 test.describe('申请表管理API测试', () => {
   let apiContext;
   let adminToken;
@@ -25,7 +27,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'test_table_new',
+          target_table_name: generateTableName(),
           title: '新建测试表',
           description: '这是一个测试表',
           fieldChanges: [
@@ -110,7 +112,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'invalid_type',
-          target_table_name: 'test_table',
+          target_table_name: generateTableName(),
           title: '测试申请',
         },
       });
@@ -151,7 +153,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'test_table',
+          target_table_name: generateTableName(),
           title: '测试申请',
           fieldChanges: [],
         },
@@ -166,7 +168,7 @@ test.describe('申请表管理API测试', () => {
       const response = await apiContext.post('/api/applications', {
         data: {
           application_type: 'new_table',
-          target_table_name: 'test_table',
+          target_table_name: generateTableName(),
           title: '测试申请',
           fieldChanges: [
             {
@@ -256,7 +258,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'detail_test_table',
+          target_table_name: generateTableName(),
           title: '测试详情申请',
           fieldChanges: [
             {
@@ -289,7 +291,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'fields_detail_test',
+          target_table_name: generateTableName(),
           title: '字段详情测试',
           fieldChanges: [
             {
@@ -342,7 +344,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'review_test_table',
+          target_table_name: generateTableName(),
           title: '审核测试申请',
           fieldChanges: [
             {
@@ -376,7 +378,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'admin_review_test',
+          target_table_name: generateTableName(),
           title: '管理员审核测试',
           fieldChanges: [
             {
@@ -408,7 +410,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'unauthorized_review',
+          target_table_name: generateTableName(),
           title: '未授权审核测试',
           fieldChanges: [
             {
@@ -439,7 +441,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'invalid_status_test',
+          target_table_name: generateTableName(),
           title: '无效状态测试',
           fieldChanges: [
             {
@@ -472,7 +474,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'already_reviewed_test',
+          target_table_name: generateTableName(),
           title: '已审核测试',
           fieldChanges: [
             {
@@ -489,14 +491,14 @@ test.describe('申请表管理API测试', () => {
       await apiContext.put(`/api/applications/${createData.applicationId}/review`, {
         headers: getAuthHeaders(adminToken),
         data: {
-          status: 'approved',
+          status: 'rejected',
         },
       });
 
       const secondReviewResponse = await apiContext.put(`/api/applications/${createData.applicationId}/review`, {
         headers: getAuthHeaders(adminToken),
         data: {
-          status: 'rejected',
+          status: 'approved',
         },
       });
 
@@ -513,7 +515,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'reject_test_table',
+          target_table_name: generateTableName(),
           title: '拒绝测试申请',
           fieldChanges: [
             {
@@ -547,7 +549,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'delete_test_table',
+          target_table_name: generateTableName(),
           title: '删除测试申请',
           fieldChanges: [
             {
@@ -577,7 +579,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'admin_delete_test',
+          target_table_name: generateTableName(),
           title: '管理员删除测试',
           fieldChanges: [
             {
@@ -605,7 +607,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'cannot_delete_test',
+          target_table_name: generateTableName(),
           title: '无法删除测试',
           fieldChanges: [
             {
@@ -622,7 +624,7 @@ test.describe('申请表管理API测试', () => {
       await apiContext.put(`/api/applications/${createData.applicationId}/review`, {
         headers: getAuthHeaders(adminToken),
         data: {
-          status: 'approved',
+          status: 'rejected',
         },
       });
 
@@ -654,7 +656,7 @@ test.describe('申请表管理API测试', () => {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'unauthorized_delete',
+          target_table_name: generateTableName(),
           title: '未授权删除测试',
           fieldChanges: [
             {
@@ -678,12 +680,13 @@ test.describe('申请表管理API测试', () => {
     test('应该能够完成从创建到审批的完整流程', async () => {
       const user = await createTestUser('user', true);
       const reviewer = await createTestUser('reviewer', true);
+      const tableName = generateTableName();
 
       const createResponse = await apiContext.post('/api/applications', {
         headers: getAuthHeaders(user.token),
         data: {
           application_type: 'new_table',
-          target_table_name: 'full_flow_test',
+          target_table_name: tableName,
           title: '完整流程测试',
           description: '测试完整的申请审批流程',
           fieldChanges: [
@@ -737,7 +740,7 @@ test.describe('申请表管理API测试', () => {
       });
       expect(tablesResponse.status()).toBe(200);
       const tables = await tablesResponse.json();
-      const newTable = tables.find(t => t.table_name === 'full_flow_test');
+      const newTable = tables.find(t => t.table_name === tableName);
       expect(newTable).toBeDefined();
     });
   });

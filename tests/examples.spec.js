@@ -327,7 +327,8 @@ describe('示例：高级测试技巧', () => {
   });
 
   test('超时处理测试', async ({ page }) => {
-    await expect(page.goto('/')).toHaveURL(/.*/, { timeout: 10000 });
+    await page.goto('/', { timeout: 10000 });
+    await expect(page).toHaveURL(/.*/);
     await expect(page).toHaveTitle(/表结构申请系统/);
   });
 });
