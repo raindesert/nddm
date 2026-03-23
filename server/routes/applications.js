@@ -5,36 +5,42 @@ const { authenticateToken, requireReviewer } = require('../middleware/auth');
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    await db.getDb();
+    const envId = req.query.env_id;
+    if (!envId) {
+      return res.status(400).json({ error: '缺少环境参数' });
+    }
+
+    await db.getEnvDb(envId);
     const { status, applicant_id } = req.query;
-    let query = `
-      SELECT sa.*, 
-        u.name as applicant_name, u.email as applicant_email,
-        r.name as reviewer_name
-      FROM schema_applications sa
-      LEFT JOIN users u ON sa.applicant_id = u.id
-      LEFT JOIN users r ON sa.reviewer_id = r.id
-    `;
-    const conditions = [];
+    let query = 'SELECT * FROM schema_applications sa';
     const params = [];
 
     if (status) {
-      conditions.push('sa.status = ?');
+      query += ' WHERE sa.status = ?';
       params.push(status);
     }
 
     if (applicant_id) {
-      conditions.push('sa.applicant_id = ?');
+      query += (params.length > 0 ? ' AND' : ' WHERE') + ' sa.applicant_id = ?';
       params.push(applicant_id);
-    }
-
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
     }
 
     query += ' ORDER BY sa.created_at DESC';
 
-    const applications = db.all(query, params);
+    const applications = db.allEnv(envId, query, params);
+    
+    await db.getUsersDb();
+    for (const app of applications) {
+      const applicant = db.getUsers('SELECT name, email FROM users WHERE id = ?', [app.applicant_id]);
+      app.applicant_name = applicant ? applicant.name : '未知用户';
+      app.applicant_email = applicant ? applicant.email : '';
+      
+      if (app.reviewer_id) {
+        const reviewer = db.getUsers('SELECT name FROM users WHERE id = ?', [app.reviewer_id]);
+        app.reviewer_name = reviewer ? reviewer.name : '';
+      }
+    }
+
     res.json(applications);
   } catch (error) {
     console.error('获取申请列表错误:', error);
@@ -44,23 +50,31 @@ router.get('/', authenticateToken, async (req, res) => {
 
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    await db.getDb();
+    const envId = req.query.env_id;
+    if (!envId) {
+      return res.status(400).json({ error: '缺少环境参数' });
+    }
+
+    await db.getEnvDb(envId);
     const { id } = req.params;
-    const application = db.get(`
-      SELECT sa.*, 
-        u.name as applicant_name, u.email as applicant_email,
-        r.name as reviewer_name
-      FROM schema_applications sa
-      LEFT JOIN users u ON sa.applicant_id = u.id
-      LEFT JOIN users r ON sa.reviewer_id = r.id
-      WHERE sa.id = ?
-    `, [id]);
+    const application = db.getEnv(envId, 'SELECT * FROM schema_applications WHERE id = ?', [id]);
 
     if (!application) {
       return res.status(404).json({ error: '申请不存在' });
     }
 
-    const fieldChanges = db.all('SELECT * FROM application_field_changes WHERE application_id = ? ORDER BY id', [id]);
+    const fieldChanges = db.allEnv(envId, 'SELECT * FROM application_field_changes WHERE application_id = ? ORDER BY id', [id]);
+    
+    await db.getUsersDb();
+    const applicant = db.getUsers('SELECT name, email FROM users WHERE id = ?', [application.applicant_id]);
+    application.applicant_name = applicant ? applicant.name : '未知用户';
+    application.applicant_email = applicant ? applicant.email : '';
+    
+    if (application.reviewer_id) {
+      const reviewer = db.getUsers('SELECT name FROM users WHERE id = ?', [application.reviewer_id]);
+      application.reviewer_name = reviewer ? reviewer.name : '';
+    }
+
     res.json({ ...application, fieldChanges });
   } catch (error) {
     console.error('获取申请详情错误:', error);
@@ -70,7 +84,12 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    await db.getDb();
+    const envId = req.body.env_id;
+    if (!envId) {
+      return res.status(400).json({ error: '缺少环境参数' });
+    }
+
+    await db.getEnvDb(envId);
     const { application_type, target_table_id, target_table_name, title, description, fieldChanges } = req.body;
 
     if (!application_type || !target_table_name || !title) {
@@ -89,7 +108,7 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: '至少需要包含一个字段变更' });
     }
 
-    const result = db.run(`
+    const result = db.runEnv(envId, `
       INSERT INTO schema_applications (applicant_id, application_type, target_table_id, target_table_name, title, description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, datetime("now"), datetime("now"))
     `, [req.user.id, application_type, target_table_id || null, target_table_name, title, description || null]);
@@ -101,7 +120,7 @@ router.post('/', authenticateToken, async (req, res) => {
         continue;
       }
       
-      db.run(`
+      db.runEnv(envId, `
         INSERT INTO application_field_changes 
         (application_id, change_type, field_name, field_type, field_length, is_nullable, default_value, field_comment, is_primary_key, old_field_name, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime("now"))
@@ -131,7 +150,12 @@ router.post('/', authenticateToken, async (req, res) => {
 
 router.put('/:id/review', authenticateToken, requireReviewer, async (req, res) => {
   try {
-    await db.getDb();
+    const envId = req.query.env_id;
+    if (!envId) {
+      return res.status(400).json({ error: '缺少环境参数' });
+    }
+
+    await db.getEnvDb(envId);
     const { id } = req.params;
     const { status, review_comment } = req.body;
 
@@ -139,13 +163,7 @@ router.put('/:id/review', authenticateToken, requireReviewer, async (req, res) =
       return res.status(400).json({ error: '无效的审核状态' });
     }
 
-    const application = db.get(`
-      SELECT sa.*, 
-        u.name as applicant_name
-      FROM schema_applications sa
-      LEFT JOIN users u ON sa.applicant_id = u.id
-      WHERE sa.id = ?
-    `, [id]);
+    const application = db.getEnv(envId, 'SELECT * FROM schema_applications WHERE id = ?', [id]);
 
     if (!application) {
       return res.status(404).json({ error: '申请不存在' });
@@ -156,10 +174,10 @@ router.put('/:id/review', authenticateToken, requireReviewer, async (req, res) =
     }
 
     if (status === 'approved') {
-      applySchemaChanges(application);
+      applySchemaChanges(envId, application);
     }
 
-    db.run(`
+    db.runEnv(envId, `
       UPDATE schema_applications 
       SET status = ?, reviewer_id = ?, review_comment = ?, reviewed_at = datetime("now"), updated_at = datetime("now")
       WHERE id = ?
@@ -172,54 +190,59 @@ router.put('/:id/review', authenticateToken, requireReviewer, async (req, res) =
   }
 });
 
-function applySchemaChanges(application) {
-  const fieldChanges = db.all('SELECT * FROM application_field_changes WHERE application_id = ?', [application.id]);
+function applySchemaChanges(envId, application) {
+  const fieldChanges = db.allEnv(envId, 'SELECT * FROM application_field_changes WHERE application_id = ?', [application.id]);
 
   if (application.application_type === 'new_table') {
-    const result = db.run('INSERT INTO table_schemas (table_name, table_comment, created_at, updated_at) VALUES (?, ?, datetime("now"), datetime("now"))',
+    const result = db.runEnv(envId, 'INSERT INTO table_schemas (table_name, table_comment, created_at, updated_at) VALUES (?, ?, datetime("now"), datetime("now"))',
       [application.target_table_name, application.description]);
     const tableId = result.lastInsertRowid;
 
     for (const change of fieldChanges) {
       if (change.change_type === 'add' && change.field_name && change.field_type) {
-        db.run(`
+        db.runEnv(envId, `
           INSERT INTO table_fields (table_schema_id, field_name, field_type, field_length, is_nullable, default_value, field_comment, is_primary_key, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime("now"), datetime("now"))
         `, [tableId, change.field_name, change.field_type, change.field_length, change.is_nullable, change.default_value, change.field_comment, change.is_primary_key]);
       }
     }
   } else if (application.application_type === 'modify_table') {
-    const table = db.get('SELECT * FROM table_schemas WHERE id = ?', [application.target_table_id]);
+    const table = db.getEnv(envId, 'SELECT * FROM table_schemas WHERE id = ?', [application.target_table_id]);
     if (!table) {
       throw new Error('目标表不存在');
     }
 
     for (const change of fieldChanges) {
       if (change.change_type === 'add' && change.field_name && change.field_type) {
-        db.run(`
+        db.runEnv(envId, `
           INSERT INTO table_fields (table_schema_id, field_name, field_type, field_length, is_nullable, default_value, field_comment, is_primary_key, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime("now"), datetime("now"))
         `, [table.id, change.field_name, change.field_type, change.field_length, change.is_nullable, change.default_value, change.field_comment, change.is_primary_key]);
       } else if (change.change_type === 'modify' && change.field_name && change.old_field_name) {
-        db.run(`
+        db.runEnv(envId, `
           UPDATE table_fields 
           SET field_name = ?, field_type = ?, field_length = ?, is_nullable = ?, default_value = ?, field_comment = ?, is_primary_key = ?, updated_at = datetime("now")
           WHERE table_schema_id = ? AND field_name = ?
         `, [change.field_name, change.field_type, change.field_length, change.is_nullable, change.default_value, change.field_comment, change.is_primary_key, table.id, change.old_field_name]);
       } else if (change.change_type === 'delete' && change.field_name) {
-        db.run('DELETE FROM table_fields WHERE table_schema_id = ? AND field_name = ?', [table.id, change.field_name]);
+        db.runEnv(envId, 'DELETE FROM table_fields WHERE table_schema_id = ? AND field_name = ?', [table.id, change.field_name]);
       }
     }
 
-    db.run('UPDATE table_schemas SET updated_at = datetime("now") WHERE id = ?', [table.id]);
+    db.runEnv(envId, 'UPDATE table_schemas SET updated_at = datetime("now") WHERE id = ?', [table.id]);
   }
 }
 
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    await db.getDb();
+    const envId = req.query.env_id;
+    if (!envId) {
+      return res.status(400).json({ error: '缺少环境参数' });
+    }
+
+    await db.getEnvDb(envId);
     const { id } = req.params;
-    const application = db.get('SELECT * FROM schema_applications WHERE id = ?', [id]);
+    const application = db.getEnv(envId, 'SELECT * FROM schema_applications WHERE id = ?', [id]);
 
     if (!application) {
       return res.status(404).json({ error: '申请不存在' });
@@ -233,8 +256,8 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: '只能删除待审核的申请' });
     }
 
-    db.run('DELETE FROM application_field_changes WHERE application_id = ?', [id]);
-    db.run('DELETE FROM schema_applications WHERE id = ?', [id]);
+    db.runEnv(envId, 'DELETE FROM application_field_changes WHERE application_id = ?', [id]);
+    db.runEnv(envId, 'DELETE FROM schema_applications WHERE id = ?', [id]);
     res.json({ message: '申请删除成功' });
   } catch (error) {
     console.error('删除申请错误:', error);

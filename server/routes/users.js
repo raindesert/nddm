@@ -5,8 +5,8 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    await db.getDb();
-    const users = db.all('SELECT id, email, name, role, is_verified, created_at FROM users');
+    await db.getUsersDb();
+    const users = db.allUsers('SELECT id, email, name, role, is_verified, created_at FROM users');
     res.json(users);
   } catch (error) {
     console.error('获取用户列表错误:', error);
@@ -16,16 +16,16 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
 
 router.put('/:id/verify', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    await db.getDb();
+    await db.getUsersDb();
     const { id } = req.params;
     const { is_verified, role } = req.body;
 
-    const user = db.get('SELECT * FROM users WHERE id = ?', [id]);
+    const user = db.getUsers('SELECT * FROM users WHERE id = ?', [id]);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
 
-    db.run('UPDATE users SET is_verified = ?, role = ?, updated_at = datetime("now") WHERE id = ?',
+    db.runUsers('UPDATE users SET is_verified = ?, role = ?, updated_at = datetime("now") WHERE id = ?',
       [is_verified ? 1 : 0, role || user.role, id]);
 
     res.json({ message: '用户状态更新成功' });
@@ -37,19 +37,19 @@ router.put('/:id/verify', authenticateToken, requireAdmin, async (req, res) => {
 
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    await db.getDb();
+    await db.getUsersDb();
     const { id } = req.params;
 
     if (parseInt(id) === req.user.id) {
       return res.status(400).json({ error: '不能删除自己的账户' });
     }
 
-    const user = db.get('SELECT * FROM users WHERE id = ?', [id]);
+    const user = db.getUsers('SELECT * FROM users WHERE id = ?', [id]);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
 
-    db.run('DELETE FROM users WHERE id = ?', [id]);
+    db.runUsers('DELETE FROM users WHERE id = ?', [id]);
     res.json({ message: '用户删除成功' });
   } catch (error) {
     console.error('删除用户错误:', error);

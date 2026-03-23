@@ -7,7 +7,7 @@ const { authenticateToken, generateToken } = require('../middleware/auth');
 
 router.post('/register', async (req, res) => {
   try {
-    await db.getDb();
+    await db.getUsersDb();
     const { email, password, name } = req.body;
 
     if (!email || !password) {
@@ -23,7 +23,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: '密码长度至少6位' });
     }
 
-    const existingUser = db.get('SELECT id FROM users WHERE email = ?', [email]);
+    const existingUser = db.getUsers('SELECT id FROM users WHERE email = ?', [email]);
     if (existingUser) {
       return res.status(400).json({ error: '该邮箱已被注册' });
     }
@@ -31,7 +31,7 @@ router.post('/register', async (req, res) => {
     const hashedPassword = bcrypt.hashSync(password, 10);
     const verificationToken = uuidv4();
 
-    const result = db.run(`
+    const result = db.runUsers(`
       INSERT INTO users (email, password, name, verification_token)
       VALUES (?, ?, ?, ?)
     `, [email, hashedPassword, name || email.split('@')[0], verificationToken]);
@@ -48,14 +48,14 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    await db.getDb();
+    await db.getUsersDb();
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: '邮箱和密码为必填项' });
     }
 
-    const user = db.get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = db.getUsers('SELECT * FROM users WHERE email = ?', [email]);
     if (!user) {
       return res.status(401).json({ error: '邮箱或密码错误' });
     }
@@ -89,8 +89,8 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    await db.getDb();
-    const user = db.get('SELECT id, email, name, role, created_at FROM users WHERE id = ?', [req.user.id]);
+    await db.getUsersDb();
+    const user = db.getUsers('SELECT id, email, name, role, created_at FROM users WHERE id = ?', [req.user.id]);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
@@ -103,7 +103,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 
 router.post('/change-password', authenticateToken, async (req, res) => {
   try {
-    await db.getDb();
+    await db.getUsersDb();
     const { oldPassword, newPassword } = req.body;
 
     if (!oldPassword || !newPassword) {
@@ -114,7 +114,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: '新密码长度至少6位' });
     }
 
-    const user = db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    const user = db.getUsers('SELECT * FROM users WHERE id = ?', [req.user.id]);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
@@ -125,7 +125,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     }
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    db.run('UPDATE users SET password = ?, updated_at = datetime("now") WHERE id = ?', [hashedPassword, req.user.id]);
+    db.runUsers('UPDATE users SET password = ?, updated_at = datetime("now") WHERE id = ?', [hashedPassword, req.user.id]);
 
     res.json({ message: '密码修改成功' });
   } catch (error) {
